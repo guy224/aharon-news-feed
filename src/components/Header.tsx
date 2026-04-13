@@ -11,7 +11,7 @@ export default function Header({ isConnected = true }: { isConnected?: boolean }
   return (
     <header
       id="main-header"
-      className="glass-strong sticky top-0 z-50 border-b border-slate-800/50"
+      className="sticky top-0 z-50 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl"
     >
       <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
         {/* Channel Identity */}

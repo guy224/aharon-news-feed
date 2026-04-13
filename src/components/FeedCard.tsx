@@ -11,7 +11,9 @@ import {
   Globe,
   Scale,
   Newspaper,
+  Share2,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import type { NewsFeedItem, NewsCategory } from "@/lib/types";
 
 // ── Relative Time Formatter ────────────────────────────
@@ -107,24 +109,24 @@ function getUrgencyStyles(score: number | null) {
   const s = score || 1;
   if (s >= 5)
     return {
-      card: "border-red-500/60 bg-red-950/30 shadow-red-500/10 shadow-lg animate-pulse-urgent",
+      card: "border-red-500/60 bg-red-950/40 shadow-[0_0_15px_rgba(239,68,68,0.15)] animate-pulse-urgent",
       dot: "border-red-400 bg-red-500 shadow-md shadow-red-500/50",
-      titleColor: "text-red-100",
+      titleColor: "bg-gradient-to-r from-red-200 to-rose-400 bg-clip-text text-transparent drop-shadow-sm",
     };
   if (s >= 4)
     return {
-      card: "border-orange-500/40 bg-orange-950/20 shadow-orange-500/5 shadow-md",
+      card: "border-orange-500/40 bg-orange-950/20 shadow-[0_0_10px_rgba(249,115,22,0.1)]",
       dot: "border-orange-400 bg-orange-500 shadow-md shadow-orange-500/40",
-      titleColor: "text-orange-100",
+      titleColor: "bg-gradient-to-r from-orange-100 to-amber-400 bg-clip-text text-transparent drop-shadow-sm",
     };
   if (s >= 3)
     return {
-      card: "border-yellow-500/20 bg-slate-800/60",
+      card: "border-white/10 bg-slate-800/60",
       dot: "border-yellow-500 bg-yellow-500",
       titleColor: "text-slate-50",
     };
   return {
-    card: "border-slate-700/50 bg-slate-800/40",
+    card: "border-white/10 bg-slate-800/40",
     dot: "border-slate-500 bg-slate-600",
     titleColor: "text-slate-100",
   };
@@ -151,14 +153,31 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
 
   const isHighUrgency = (item.urgency_score || 1) >= 4;
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: item.ai_title || "עדכון חדשות - אהרון ידיעות",
+          text: item.ai_title ? `${item.ai_title}\n\n` : "",
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(`${item.ai_title || ""}\n${window.location.href}`);
+      alert("הקישור הועתק ללוח!");
+    }
+  };
+
   return (
-    <article
+    <motion.article
       id={`feed-card-${item.telegram_message_id}`}
-      className={`
-        relative pr-8
-        ${isNew ? "animate-slide-in" : "animate-fade-in"}
-      `}
-      style={{ animationDelay: isNew ? "0ms" : `${index * 60}ms` }}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="relative pr-8"
     >
       {/* Timeline dot */}
       <div className="absolute right-0 top-4 z-10">
@@ -235,12 +254,21 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
 
         {/* ── Content ───────────────────────────────────── */}
         <div className="space-y-3 p-4">
-          {/* AI Title */}
-          {item.ai_title && (
-            <h2 className={`text-base font-bold leading-snug sm:text-lg ${urgency.titleColor}`}>
-              {item.ai_title}
-            </h2>
-          )}
+          {/* AI Title & Share Button */}
+          <div className="flex items-start justify-between gap-3">
+            {item.ai_title && (
+              <h2 className={`text-lg font-extrabold leading-snug tracking-wide sm:text-xl ${urgency.titleColor}`}>
+                {item.ai_title}
+              </h2>
+            )}
+            <button
+              onClick={handleShare}
+              className="flex-shrink-0 rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+              aria-label="שתף"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
+          </div>
 
           {/* Category Badge + Urgency Score */}
           {categoryConfig && CategoryIcon && (
@@ -295,6 +323,6 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
           </div>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { ArrowUp, Loader2, WifiOff, Inbox } from "lucide-react";
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser";
-import type { NewsFeedItem } from "@/lib/types";
+import type { NewsFeedItem, NewsCategory } from "@/lib/types";
 import Header from "./Header";
 import FeedCard from "./FeedCard";
 
@@ -22,8 +22,19 @@ interface NewsFeedProps {
  * - "New update" toast notification
  * - Loading and empty states
  */
+const CATEGORIES: ("הכל" | NewsCategory)[] = [
+  "הכל",
+  "ביטחוני",
+  "אזעקות",
+  "פוליטי",
+  "מדיני",
+  "פלילי",
+  "כללי",
+];
+
 export default function NewsFeed({ initialData }: NewsFeedProps) {
   const [items, setItems] = useState<NewsFeedItem[]>(initialData);
+  const [activeCategory, setActiveCategory] = useState<"הכל" | NewsCategory>("הכל");
   const [isConnected, setIsConnected] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialData.length >= PAGE_SIZE);
@@ -175,6 +186,12 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
     setNewCount(0);
   };
 
+  // ── Category Filtering ───────────────────────────────
+  const filteredItems = useMemo(() => {
+    if (activeCategory === "הכל") return items;
+    return items.filter((item) => item.category === activeCategory);
+  }, [items, activeCategory]);
+
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Sticky Header */}
@@ -196,14 +213,32 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
       )}
 
       {/* Feed container */}
-      <main className="relative mx-auto max-w-2xl px-4 py-6">
+      <main className="relative mx-auto mt-2 max-w-2xl px-4 py-6">
+        
+        {/* Horizontal Category Scroller */}
+        <div className="sticky top-[72px] z-40 -mx-4 mb-6 flex gap-2 overflow-x-auto bg-slate-950/80 px-4 py-3 backdrop-blur-md hide-scrollbar">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                activeCategory === cat
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/25"
+                  : "bg-slate-800/60 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
         <div ref={feedTopRef} />
 
         {/* Timeline line */}
-        {items.length > 0 && <div className="timeline-line" />}
+        {filteredItems.length > 0 && <div className="timeline-line" />}
 
         {/* Empty state */}
-        {items.length === 0 && (
+        {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-4 py-32 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50">
               <Inbox className="h-8 w-8 text-slate-600" />
@@ -219,7 +254,7 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
 
         {/* Feed cards */}
         <div className="space-y-4">
-          {items.map((item, index) => (
+          {filteredItems.map((item, index) => (
             <FeedCard
               key={item.id}
               item={item}
@@ -240,14 +275,14 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
         <div ref={loadMoreRef} className="h-4" />
 
         {/* End of feed */}
-        {!hasMore && items.length > 0 && (
+        {!hasMore && filteredItems.length > 0 && (
           <div className="py-8 text-center">
             <p className="text-sm text-slate-600">── סוף העדכונים ──</p>
           </div>
         )}
 
         {/* Disconnected banner */}
-        {!isConnected && items.length > 0 && (
+        {!isConnected && (
           <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
             <div className="flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-2 text-sm text-amber-300 backdrop-blur-lg">
               <WifiOff className="h-4 w-4" />
