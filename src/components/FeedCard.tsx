@@ -35,100 +35,53 @@ function formatRelativeTime(timestamp: string): string {
   if (diffHours < 24) return `לפני ${diffHours} שעות`;
   if (diffDays === 1) return "אתמול";
   if (diffDays < 7) return `לפני ${diffDays} ימים`;
-
-  return date.toLocaleDateString("he-IL", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date.toLocaleDateString("he-IL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function formatFullTime(timestamp: string): string {
   return new Date(timestamp).toLocaleString("he-IL", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
 
 // ── Category Config ────────────────────────────────────
 
-interface CategoryConfig {
-  icon: React.ComponentType<{ className?: string }>;
-  bg: string;
-  text: string;
-  border: string;
-}
-
-const CATEGORY_MAP: Record<NewsCategory, CategoryConfig> = {
-  "ביטחוני": {
-    icon: Shield,
-    bg: "bg-red-500/15",
-    text: "text-red-400",
-    border: "border-red-500/30",
-  },
-  "אזעקות": {
-    icon: Siren,
-    bg: "bg-rose-500/20",
-    text: "text-rose-300",
-    border: "border-rose-500/40",
-  },
-  "פוליטי": {
-    icon: Landmark,
-    bg: "bg-blue-500/15",
-    text: "text-blue-400",
-    border: "border-blue-500/30",
-  },
-  "מדיני": {
-    icon: Globe,
-    bg: "bg-purple-500/15",
-    text: "text-purple-400",
-    border: "border-purple-500/30",
-  },
-  "פלילי": {
-    icon: Scale,
-    bg: "bg-amber-500/15",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
-  },
-  "כללי": {
-    icon: Newspaper,
-    bg: "bg-slate-500/15",
-    text: "text-slate-400",
-    border: "border-slate-500/30",
-  },
+const CATEGORY_MAP: Record<NewsCategory, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  "ביטחוני": { icon: Shield,    color: "text-red-400" },
+  "אזעקות":  { icon: Siren,     color: "text-rose-300" },
+  "פוליטי":  { icon: Landmark,  color: "text-blue-400" },
+  "מדיני":   { icon: Globe,     color: "text-purple-400" },
+  "פלילי":   { icon: Scale,     color: "text-amber-400" },
+  "כללי":    { icon: Newspaper, color: "text-slate-400" },
 };
 
-// ── Urgency Styles ─────────────────────────────────────
+// ── Urgency card styling ──────────────────────────────
 
 function getUrgencyStyles(score: number | null) {
   const s = score || 1;
-  if (s >= 5)
-    return {
-      card: "border-red-500/60 bg-red-950/40 shadow-[0_0_15px_rgba(239,68,68,0.15)] animate-pulse-urgent",
-      dot: "border-red-400 bg-red-500 shadow-md shadow-red-500/50",
-      titleColor: "bg-gradient-to-r from-red-200 to-rose-400 bg-clip-text text-transparent drop-shadow-sm",
-    };
-  if (s >= 4)
-    return {
-      card: "border-orange-500/40 bg-orange-950/20 shadow-[0_0_10px_rgba(249,115,22,0.1)]",
-      dot: "border-orange-400 bg-orange-500 shadow-md shadow-orange-500/40",
-      titleColor: "bg-gradient-to-r from-orange-100 to-amber-400 bg-clip-text text-transparent drop-shadow-sm",
-    };
-  if (s >= 3)
-    return {
-      card: "border-white/10 bg-slate-800/60",
-      dot: "border-yellow-500 bg-yellow-500",
-      titleColor: "text-slate-50",
-    };
+  if (s >= 5) return {
+    border: "rgba(239,68,68,0.45)",
+    glow: "0 0 0 1px rgba(239,68,68,0.3), 0 0 28px rgba(239,68,68,0.14)",
+    bg: "rgba(127,29,29,0.22)",
+    titleClass: "bg-gradient-to-r from-red-200 via-rose-300 to-red-400 bg-clip-text text-transparent",
+    dotClass: "bg-red-500 shadow-md shadow-red-500/50",
+    urgent: true,
+  };
+  if (s >= 4) return {
+    border: "rgba(249,115,22,0.35)",
+    glow: "0 0 0 1px rgba(249,115,22,0.2), 0 0 20px rgba(249,115,22,0.1)",
+    bg: "rgba(124,45,18,0.18)",
+    titleClass: "bg-gradient-to-r from-orange-100 to-amber-400 bg-clip-text text-transparent",
+    dotClass: "bg-orange-500 shadow-md shadow-orange-500/40",
+    urgent: false,
+  };
   return {
-    card: "border-white/10 bg-slate-800/40",
-    dot: "border-slate-500 bg-slate-600",
-    titleColor: "text-slate-100",
+    border: "rgba(255,255,255,0.08)",
+    glow: "0 8px 32px rgba(0,0,0,0.7)",
+    bg: "rgba(255,255,255,0.03)",
+    titleClass: "text-white/92",
+    dotClass: "bg-white/25",
+    urgent: false,
   };
 }
 
@@ -140,33 +93,26 @@ interface FeedCardProps {
   index?: number;
 }
 
-/**
- * FeedCard — Individual news item card with AI-generated title, category badge, and urgency styling
- */
 export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardProps) {
   const relativeTime = useMemo(() => formatRelativeTime(item.timestamp), [item.timestamp]);
-  const fullTime = useMemo(() => formatFullTime(item.timestamp), [item.timestamp]);
+  const fullTime     = useMemo(() => formatFullTime(item.timestamp), [item.timestamp]);
+  const urgency      = useMemo(() => getUrgencyStyles(item.urgency_score), [item.urgency_score]);
 
-  const urgency = useMemo(() => getUrgencyStyles(item.urgency_score), [item.urgency_score]);
-  const categoryConfig = item.category ? CATEGORY_MAP[item.category] || CATEGORY_MAP["כללי"] : null;
-  const CategoryIcon = categoryConfig?.icon;
-
-  const isHighUrgency = (item.urgency_score || 1) >= 4;
+  const categoryConfig = item.category ? CATEGORY_MAP[item.category] ?? CATEGORY_MAP["כללי"] : null;
+  const CategoryIcon   = categoryConfig?.icon;
+  const isHighUrgency  = (item.urgency_score || 1) >= 4;
 
   const handleShare = async () => {
+    const shareData = {
+      title: item.ai_title || "עדכון חדשות - אהרון ידיעות",
+      text: item.ai_title ? `${item.ai_title}\n\n` : "",
+      url: window.location.href,
+    };
     if (navigator.share) {
-      try {
-        await navigator.share({
-          title: item.ai_title || "עדכון חדשות - אהרון ידיעות",
-          text: item.ai_title ? `${item.ai_title}\n\n` : "",
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.error("Error sharing:", err);
-      }
+      try { await navigator.share(shareData); }
+      catch { /* user cancelled */ }
     } else {
-      // Fallback: Copy to clipboard
-      navigator.clipboard.writeText(`${item.ai_title || ""}\n${window.location.href}`);
+      await navigator.clipboard.writeText(`${shareData.text}${shareData.url}`);
       alert("הקישור הועתק ללוח!");
     }
   };
@@ -174,60 +120,61 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
   return (
     <motion.article
       id={`feed-card-${item.telegram_message_id}`}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative pr-8"
+      layout
+      layoutId={`card-${item.id}`}
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: isNew ? 0 : index * 0.04 }}
+      whileHover={{ scale: 1.015, y: -2, transition: { type: "spring", stiffness: 400, damping: 28 } }}
+      className="cursor-default"
+      style={{ animationFillMode: "both" }}
     >
-      {/* Timeline dot */}
-      <div className="absolute right-0 top-4 z-10">
-        <div className={`h-[10px] w-[10px] rounded-full border-2 ${urgency.dot}`} />
-      </div>
-
-      {/* Card */}
       <div
-        className={`
-          group overflow-hidden rounded-xl border backdrop-blur-md
-          transition-all duration-300 hover:border-slate-500/40
-          ${urgency.card}
-        `}
+        className="overflow-hidden rounded-3xl backdrop-blur-3xl transition-shadow duration-300"
+        style={{
+          background: urgency.bg,
+          border: `1px solid ${urgency.border}`,
+          boxShadow: urgency.urgent
+            ? `${urgency.glow}, 0 8px 32px rgba(0,0,0,0.7)`
+            : urgency.glow,
+        }}
       >
-        {/* ── Urgent Banner ─────────────────────────────── */}
+        {/* ── Urgency Banner ──────────────────────────── */}
         {isHighUrgency && (
           <div
-            className={`flex items-center gap-2 border-b px-4 py-2 ${
-              (item.urgency_score || 1) >= 5
-                ? "border-red-500/30 bg-red-500/15"
-                : "border-orange-500/20 bg-orange-500/10"
-            }`}
+            className="flex items-center gap-2 px-5 py-2.5"
+            style={{
+              borderBottom: `1px solid ${urgency.border}`,
+              background: (item.urgency_score || 1) >= 5
+                ? "rgba(239,68,68,0.12)"
+                : "rgba(249,115,22,0.08)",
+            }}
           >
             <AlertTriangle
-              className={`h-4 w-4 ${
-                (item.urgency_score || 1) >= 5 ? "text-red-400" : "text-orange-400"
-              }`}
+              className={`h-3.5 w-3.5 ${(item.urgency_score||1) >= 5 ? "text-red-400" : "text-orange-400"}`}
             />
             <span
-              className={`text-xs font-bold tracking-wide ${
-                (item.urgency_score || 1) >= 5 ? "text-red-400" : "text-orange-400"
+              className={`text-xs font-bold tracking-widest uppercase ${
+                (item.urgency_score||1) >= 5 ? "text-red-400" : "text-orange-400"
               }`}
             >
-              {(item.urgency_score || 1) >= 5 ? "עדכון דחוף ביותר" : "עדכון חשוב"}
+              {(item.urgency_score||1) >= 5 ? "⚡ עדכון דחוף" : "עדכון חשוב"}
             </span>
-            {(item.urgency_score || 1) >= 5 && (
-              <span className="mr-auto h-2 w-2 animate-pulse-live rounded-full bg-red-500" />
+            {(item.urgency_score||1) >= 5 && (
+              <span className="mr-auto h-2 w-2 animate-pulse-live rounded-full bg-red-500 shadow-lg shadow-red-500/60" />
             )}
           </div>
         )}
 
-        {/* ── Media ─────────────────────────────────────── */}
+        {/* ── Media ───────────────────────────────────── */}
         {item.media_url && (
-          <div className="relative flex items-center justify-center overflow-hidden bg-black/40">
+          <div className="relative flex items-center justify-center bg-black/50">
             {item.media_type === "video" || item.media_url.endsWith(".mp4") ? (
               <video
                 src={item.media_url}
                 controls
                 preload="metadata"
-                className="max-h-96 w-full object-contain sm:max-h-[500px]"
+                className="max-h-80 w-full object-contain sm:max-h-[440px]"
               />
             ) : (
               <>
@@ -235,66 +182,66 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
                   src={item.media_url}
                   alt="תמונה מצורפת"
                   loading="lazy"
-                  className="max-h-96 w-full object-contain sm:max-h-[500px]"
+                  className="max-h-80 w-full object-contain sm:max-h-[440px]"
                   onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = "none";
-                    const fallback = target.nextElementSibling as HTMLElement;
+                    (e.target as HTMLImageElement).style.display = "none";
+                    const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
                     if (fallback) fallback.style.display = "flex";
                   }}
                 />
-                <div className="hidden h-48 w-full items-center justify-center bg-slate-800/50 sm:h-56">
-                  <ImageIcon className="h-8 w-8 text-slate-600" />
+                <div className="hidden h-40 w-full items-center justify-center">
+                  <ImageIcon className="h-7 w-7 text-white/20" />
                 </div>
               </>
             )}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
+            {/* Vignette */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
           </div>
         )}
 
-        {/* ── Content ───────────────────────────────────── */}
-        <div className="space-y-3 p-4">
-          {/* AI Title & Share Button */}
+        {/* ── Content ─────────────────────────────────── */}
+        <div className="space-y-3 p-5">
+          {/* AI Title + Share */}
           <div className="flex items-start justify-between gap-3">
             {item.ai_title && (
-              <h2 className={`text-lg font-extrabold leading-snug tracking-wide sm:text-xl ${urgency.titleColor}`}>
+              <h2 className={`text-[1.05rem] font-bold leading-snug tracking-tight sm:text-lg ${urgency.titleClass}`}>
                 {item.ai_title}
               </h2>
             )}
             <button
               onClick={handleShare}
-              className="flex-shrink-0 rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
               aria-label="שתף"
+              className="flex-shrink-0 rounded-full p-2 text-white/30 transition-all hover:bg-white/8 hover:text-white/70"
             >
-              <Share2 className="h-5 w-5" />
+              <Share2 className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Category Badge + Urgency Score */}
+          {/* Category badge + Urgency dots */}
           {categoryConfig && CategoryIcon && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${categoryConfig.bg} ${categoryConfig.text} ${categoryConfig.border}`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest ${categoryConfig.color}`}
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
               >
-                <CategoryIcon className="h-3 w-3" />
+                <CategoryIcon className="h-2.5 w-2.5" />
                 {item.category}
               </span>
 
-              {/* Urgency score dots */}
+              {/* Urgency dots */}
               {item.urgency_score && item.urgency_score > 1 && (
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-[3px]">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div
                       key={i}
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        i < (item.urgency_score || 1)
-                          ? (item.urgency_score || 1) >= 4
-                            ? "bg-red-400"
-                            : (item.urgency_score || 1) >= 3
-                            ? "bg-yellow-400"
-                            : "bg-slate-400"
-                          : "bg-slate-700"
-                      }`}
+                      className="h-1 w-1 rounded-full"
+                      style={{
+                        background: i < (item.urgency_score ?? 1)
+                          ? (item.urgency_score ?? 1) >= 4 ? "rgb(239,68,68)"
+                          : (item.urgency_score ?? 1) >= 3 ? "rgb(234,179,8)"
+                          : "rgba(255,255,255,0.4)"
+                          : "rgba(255,255,255,0.1)",
+                      }}
                     />
                   ))}
                 </div>
@@ -305,18 +252,18 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
           {/* Message body */}
           {item.content && (
             <div
-              className="feed-content text-sm leading-relaxed text-slate-300"
+              className="feed-content"
               dangerouslySetInnerHTML={{ __html: item.content }}
             />
           )}
 
           {/* Timestamp */}
-          <div className="flex items-center gap-1.5 pt-1">
-            <Clock className="h-3.5 w-3.5 text-slate-500" />
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <Clock className="h-3 w-3 text-white/25" />
             <time
               dateTime={item.timestamp}
               title={fullTime}
-              className="text-xs text-slate-500 transition-colors hover:text-slate-400"
+              className="text-[11px] font-medium uppercase tracking-widest text-white/30 transition-colors hover:text-white/50"
             >
               {relativeTime}
             </time>
