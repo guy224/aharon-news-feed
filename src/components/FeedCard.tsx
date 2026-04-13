@@ -77,9 +77,9 @@ function getUrgencyStyles(score: number | null) {
   };
   return {
     border: "rgba(255,255,255,0.08)",
-    glow: "0 8px 32px rgba(0,0,0,0.7)",
-    bg: "rgba(255,255,255,0.03)",
-    titleClass: "text-white/92",
+    glow: "0 25px 50px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
+    bg: "rgba(255,255,255,0.04)",
+    titleClass: "text-white/95",
     dotClass: "bg-white/25",
     urgent: false,
   };
@@ -130,21 +130,21 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
       style={{ animationFillMode: "both" }}
     >
       <div
-        className="overflow-hidden rounded-3xl backdrop-blur-3xl transition-shadow duration-300"
+        className="flex flex-col rounded-[2rem] backdrop-blur-2xl transition-shadow duration-300 p-4 sm:p-5"
         style={{
           background: urgency.bg,
           border: `1px solid ${urgency.border}`,
           boxShadow: urgency.urgent
-            ? `${urgency.glow}, 0 8px 32px rgba(0,0,0,0.7)`
+            ? `${urgency.glow}, 0 25px 50px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)`
             : urgency.glow,
         }}
       >
         {/* ── Urgency Banner ──────────────────────────── */}
         {isHighUrgency && (
           <div
-            className="flex items-center gap-2 px-5 py-2.5"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-4"
             style={{
-              borderBottom: `1px solid ${urgency.border}`,
+              border: `1px solid ${urgency.border}`,
               background: (item.urgency_score || 1) >= 5
                 ? "rgba(239,68,68,0.12)"
                 : "rgba(249,115,22,0.08)",
@@ -168,7 +168,7 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
 
         {/* ── Media ───────────────────────────────────── */}
         {item.media_url && (
-          <div className="relative flex items-center justify-center bg-black/50">
+          <div className="relative mb-4 flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
             {item.media_type === "video" || item.media_url.endsWith(".mp4") ? (
               <video
                 src={item.media_url}
@@ -200,11 +200,11 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
         )}
 
         {/* ── Content ─────────────────────────────────── */}
-        <div className="space-y-3 p-5">
-          {/* AI Title + Share */}
-          <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col">
+          {/* AI Title & Share */}
+          <div className="mb-4 flex items-start justify-between gap-4">
             {item.ai_title && (
-              <h2 className={`text-[1.05rem] font-bold leading-snug tracking-tight sm:text-lg ${urgency.titleClass}`}>
+              <h2 className={`text-xl font-black leading-tight tracking-tight sm:text-2xl ${urgency.titleClass}`}>
                 {item.ai_title}
               </h2>
             )}
@@ -219,7 +219,7 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
 
           {/* Category badge + Urgency dots */}
           {categoryConfig && CategoryIcon && (
-            <div className="flex items-center gap-2.5">
+            <div className="mb-4 flex items-center gap-2.5">
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest ${categoryConfig.color}`}
                 style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
@@ -252,7 +252,7 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
           {/* Message body */}
           {item.content && (
             <div
-              className="feed-content"
+              className="feed-content mb-4 text-sm leading-relaxed text-slate-300 md:text-base"
               dangerouslySetInnerHTML={{ __html: item.content }}
             />
           )}

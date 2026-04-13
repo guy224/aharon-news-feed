@@ -193,7 +193,7 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
   }, [items, activeCategory]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-[#0a1128] to-slate-950 text-white">
       {/* Sticky Header */}
       <Header isConnected={isConnected} />
 
