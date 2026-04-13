@@ -60,27 +60,24 @@ const CATEGORY_MAP: Record<NewsCategory, { icon: React.ComponentType<{ className
 function getUrgencyStyles(score: number | null) {
   const s = score || 1;
   if (s >= 5) return {
-    border: "rgba(239,68,68,0.45)",
-    glow: "0 0 0 1px rgba(239,68,68,0.3), 0 0 28px rgba(239,68,68,0.14)",
-    bg: "rgba(127,29,29,0.22)",
-    titleClass: "bg-gradient-to-r from-red-200 via-rose-300 to-red-400 bg-clip-text text-transparent",
-    dotClass: "bg-red-500 shadow-md shadow-red-500/50",
+    border: "rgba(239,68,68,0.4)",
+    glow: "0 0 25px rgba(239,68,68,0.3)",
+    bg: "rgba(127,29,29,0.1)",
+    titleClass: "text-white/95", // Kept simple per request
     urgent: true,
   };
   if (s >= 4) return {
-    border: "rgba(249,115,22,0.35)",
-    glow: "0 0 0 1px rgba(249,115,22,0.2), 0 0 20px rgba(249,115,22,0.1)",
-    bg: "rgba(124,45,18,0.18)",
-    titleClass: "bg-gradient-to-r from-orange-100 to-amber-400 bg-clip-text text-transparent",
-    dotClass: "bg-orange-500 shadow-md shadow-orange-500/40",
-    urgent: false,
+    border: "rgba(239,68,68,0.3)", // border-red-500/30 requested
+    glow: "0 0 15px rgba(239,68,68,0.2)",
+    bg: "rgba(249,115,22,0.05)",
+    titleClass: "text-white/95",
+    urgent: true,
   };
   return {
     border: "rgba(255,255,255,0.08)",
     glow: "0 25px 50px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
     bg: "rgba(255,255,255,0.04)",
     titleClass: "text-white/95",
-    dotClass: "bg-white/25",
     urgent: false,
   };
 }
@@ -117,6 +114,14 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
     }
   };
 
+  let fallbackTitle = "";
+  if (!item.ai_title && item.content) {
+    const plainText = item.content.replace(/<[^>]*>?/gm, "").trim();
+    const words = plainText.split(/\s+/);
+    fallbackTitle = words.slice(0, 10).join(" ") + (words.length > 10 ? "..." : "");
+  }
+  const displayTitle = item.ai_title || fallbackTitle;
+
   return (
     <motion.article
       id={`feed-card-${item.telegram_message_id}`}
@@ -139,36 +144,53 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
             : urgency.glow,
         }}
       >
-        {/* ── Urgency Banner ──────────────────────────── */}
-        {isHighUrgency && (
-          <div
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-4"
-            style={{
-              border: `1px solid ${urgency.border}`,
-              background: (item.urgency_score || 1) >= 5
-                ? "rgba(239,68,68,0.12)"
-                : "rgba(249,115,22,0.08)",
-            }}
+        {/* ── Header: Category, Share ─────────── */}
+        <div className="mb-2 flex items-start justify-between gap-2">
+          {categoryConfig && CategoryIcon ? (
+            <div className="flex items-center gap-2">
+              <span className="bg-white/10 backdrop-blur-md border border-white/10 text-[10px] px-2 py-0.5 rounded-full text-slate-300 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <CategoryIcon className="h-2.5 w-2.5" />
+                {item.category}
+              </span>
+              {/* Urgency dots */}
+              {item.urgency_score && item.urgency_score > 1 && (
+                <div className="flex items-center gap-[3px]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-1 w-1 rounded-full"
+                      style={{
+                        background: i < (item.urgency_score ?? 1)
+                          ? (item.urgency_score ?? 1) >= 4 ? "rgb(239,68,68)"
+                          : (item.urgency_score ?? 1) >= 3 ? "rgb(234,179,8)"
+                          : "rgba(255,255,255,0.4)"
+                          : "rgba(255,255,255,0.1)",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : <div />}
+          <button
+            onClick={handleShare}
+            aria-label="שתף"
+            className="flex-shrink-0 rounded-full p-2 text-white/30 transition-all hover:bg-white/10 hover:text-white/70 focus:outline-none"
           >
-            <AlertTriangle
-              className={`h-3.5 w-3.5 ${(item.urgency_score||1) >= 5 ? "text-red-400" : "text-orange-400"}`}
-            />
-            <span
-              className={`text-xs font-bold tracking-widest uppercase ${
-                (item.urgency_score||1) >= 5 ? "text-red-400" : "text-orange-400"
-              }`}
-            >
-              {(item.urgency_score||1) >= 5 ? "⚡ עדכון דחוף" : "עדכון חשוב"}
-            </span>
-            {(item.urgency_score||1) >= 5 && (
-              <span className="mr-auto h-2 w-2 animate-pulse-live rounded-full bg-red-500 shadow-lg shadow-red-500/60" />
-            )}
-          </div>
+            <Share2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* ── AI Title (The Headline) ─────────── */}
+        {displayTitle && (
+          <h2 className="mb-3 text-xl md:text-2xl font-bold text-white/95 tracking-tight leading-tight">
+            {displayTitle}
+          </h2>
         )}
 
         {/* ── Media ───────────────────────────────────── */}
         {item.media_url && (
-          <div className="relative mb-4 flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
+          <div className="relative mb-3 flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
             {item.media_type === "video" || item.media_url.endsWith(".mp4") ? (
               <video
                 src={item.media_url}
@@ -194,80 +216,27 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
                 </div>
               </>
             )}
-            {/* Vignette */}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
           </div>
         )}
 
         {/* ── Content ─────────────────────────────────── */}
-        <div className="flex flex-col">
-          {/* AI Title & Share */}
-          <div className="mb-4 flex items-start justify-between gap-4">
-            {item.ai_title && (
-              <h2 className={`text-xl font-black leading-tight tracking-tight sm:text-2xl ${urgency.titleClass}`}>
-                {item.ai_title}
-              </h2>
-            )}
-            <button
-              onClick={handleShare}
-              aria-label="שתף"
-              className="flex-shrink-0 rounded-full p-2 text-white/30 transition-all hover:bg-white/8 hover:text-white/70"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
-          </div>
+        {item.content && (
+          <div
+            className="feed-content text-slate-400 text-sm md:text-base leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: item.content }}
+          />
+        )}
 
-          {/* Category badge + Urgency dots */}
-          {categoryConfig && CategoryIcon && (
-            <div className="mb-4 flex items-center gap-2.5">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-medium uppercase tracking-widest ${categoryConfig.color}`}
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
-              >
-                <CategoryIcon className="h-2.5 w-2.5" />
-                {item.category}
-              </span>
-
-              {/* Urgency dots */}
-              {item.urgency_score && item.urgency_score > 1 && (
-                <div className="flex items-center gap-[3px]">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-1 w-1 rounded-full"
-                      style={{
-                        background: i < (item.urgency_score ?? 1)
-                          ? (item.urgency_score ?? 1) >= 4 ? "rgb(239,68,68)"
-                          : (item.urgency_score ?? 1) >= 3 ? "rgb(234,179,8)"
-                          : "rgba(255,255,255,0.4)"
-                          : "rgba(255,255,255,0.1)",
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Message body */}
-          {item.content && (
-            <div
-              className="feed-content mb-4 text-sm leading-relaxed text-slate-300 md:text-base"
-              dangerouslySetInnerHTML={{ __html: item.content }}
-            />
-          )}
-
-          {/* Timestamp */}
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <Clock className="h-3 w-3 text-white/25" />
-            <time
-              dateTime={item.timestamp}
-              title={fullTime}
-              className="text-[11px] font-medium uppercase tracking-widest text-white/30 transition-colors hover:text-white/50"
-            >
-              {relativeTime}
-            </time>
-          </div>
+        {/* ── Timestamp ───────────────────────────────── */}
+        <div className="mt-2 flex justify-end">
+          <time
+            dateTime={item.timestamp}
+            title={fullTime}
+            className="text-[10px] text-slate-500"
+          >
+            {relativeTime}
+          </time>
         </div>
       </div>
     </motion.article>
