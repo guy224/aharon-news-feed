@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import type { ScrapedMessage, ScrapeResponse, AiAnalysis } from "@/lib/types";
+import type { ScrapedMessage, ScrapeResponse, AiAnalysis, NewsCategory } from "@/lib/types";
 
-// ── Urgent keywords (fallback when Gemini is unavailable) ──
+// ── Urgent keywords (fallback when AI is unavailable) ──
 const URGENT_KEYWORDS = [
   "צבע אדום",
   "אזעקה",
@@ -30,7 +30,6 @@ function extractImageUrl(styleAttr: string | undefined): string | null {
 
 /**
  * Parse Telegram message ID from data-post attribute
- * Format: "channelname/12345" → 12345
  */
 function parseMessageId(dataPost: string | undefined): number | null {
   if (!dataPost) return null;
@@ -39,116 +38,80 @@ function parseMessageId(dataPost: string | undefined): number | null {
   return isNaN(id) ? null : id;
 }
 
-// ── Gemini AI Analysis ─────────────────────────────────────
+// ── Groq AI Analysis ─────────────────────────────────────
 
-const GEMINI_PROMPT = `אתה עורך חדשות ישראלי מומחה. עבור כל הודעת חדשות, נתח אותה והחזר JSON עם השדות הבאים:
+const GROQ_SYSTEM_PROMPT = `You are an expert Israeli news editor. 
+Analyze the news message and return a JSON object with these EXACT fields:
+1. "ai_title": A short, punchy Hebrew headline (4-6 words) for the news flash.
+2. "category": Strictly one of these values: "ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי".
+3. "urgency_score": A number 1 to 5 (5 is a rocket alert or major attack, 1 is routine news).
 
-1. "ai_title": כותרת קצרה ופתיחנית בעברית, 4-6 מילים, בסגנון של פלאש חדשותי. אל תשתמש בגרשיים בתוך הכותרת.
-2. "category": אחת מהקטגוריות הבאות בלבד: "ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"
-3. "urgency_score": מספר בין 1 ל-5:
-   - 5 = אזעקת צבע אדום פעילה, פיגוע, ירי רקטות
-   - 4 = אירוע ביטחוני משמעותי, חדירה, תקיפה
-   - 3 = עדכון ביטחוני חשוב, החלטה מדינית דחופה
-   - 2 = חדשות שוטפות חשובות
-   - 1 = עדכון כללי, מידע שגרתי
-
-החזר אך ורק JSON תקין, ללא טקסט נוסף.`;
+CRITICAL: Return ONLY valid JSON. No other text.`;
 
 /**
- * Analyze a single message with Gemini AI, including a robust fallback loop
+ * Analyze a single message with Groq AI (Llama 3)
  */
-async function analyzeWithGemini(
-  genAI: GoogleGenerativeAI,
-  plainText: string,
-  state: { workingModelName: string | null }
+async function analyzeWithGroq(
+  groq: Groq,
+  plainText: string
 ): Promise<AiAnalysis | null> {
-  const modelsToTry = [
-    "gemini-2.0-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash-002",
-    "gemini-pro"
-  ];
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: GROQ_SYSTEM_PROMPT },
+        { role: "user", content: `Analyze this news message: ${plainText}` }
+      ],
+      model: "llama3-70b-8192",
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+      max_tokens: 256,
+    });
 
-  // If we already found a working model in a previous call during this run, start with it
-  const startIdx = state.workingModelName
-    ? Math.max(0, modelsToTry.indexOf(state.workingModelName))
-    : 0;
+    const responseText = chatCompletion.choices[0]?.message?.content;
+    if (!responseText) return null;
 
-  for (let i = startIdx; i < modelsToTry.length; i++) {
-    const modelName = modelsToTry[i];
-    try {
-      const isOldModel = modelName === "gemini-pro";
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          // gemini-pro (v1.0) crashes if responseMimeType is set
-          ...(isOldModel ? {} : { responseMimeType: "application/json" }),
-          temperature: 0.3,
-          maxOutputTokens: 256,
-        },
-      });
+    const parsed = JSON.parse(responseText);
 
-      const result = await model.generateContent(
-        `${GEMINI_PROMPT}\n\nהודעה לניתוח:\n${plainText}`
-      );
-      const responseText = result.response.text();
+    // Validate and clamp values
+    const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
+    const category = validCategories.includes(parsed.category) ? parsed.category : "כללי";
+    const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
 
-      // Basic cleanup of response text in case JSON mode is off (gemini-pro)
-      let cleanJson = responseText.trim();
-      if (cleanJson.startsWith("```json")) {
-        cleanJson = cleanJson.replace(/```json|```/g, "").trim();
-      }
-
-      const parsed = JSON.parse(cleanJson);
-
-      // Successfully parsed! Save this model as working for next time
-      state.workingModelName = modelName;
-
-      // Validate and clamp values
-      const validCategories = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
-      const category = validCategories.includes(parsed.category) ? parsed.category : "כללי";
-      const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
-
-      return {
-        ai_title: parsed.ai_title || "עדכון חדשות",
-        category,
-        urgency_score: urgencyScore,
-      };
-    } catch (err) {
-      console.warn(`Failed with model ${modelName}, trying next... Error: ${err instanceof Error ? err.message : String(err)}`);
-      // If the model was previously working but now fails, reset it and keep trying
-      state.workingModelName = null;
-      continue;
-    }
+    return {
+      ai_title: parsed.ai_title || "עדכון חדשות",
+      category,
+      urgency_score: urgencyScore,
+    };
+  } catch (err) {
+    console.error("Groq analysis error:", err instanceof Error ? err.message : err);
+    return null;
   }
-
-  return null;
 }
 
 /**
- * Batch-analyze messages with Gemini
+ * Batch-analyze messages with Groq
  */
 async function batchAnalyze(
   messages: { id: number; text: string }[],
-  genAI: GoogleGenerativeAI
+  groq: Groq
 ): Promise<Map<number, AiAnalysis>> {
   const results = new Map<number, AiAnalysis>();
-  const state = { workingModelName: null };
 
-  // Process in batches of 5 to respect rate limits
-  const BATCH_SIZE = 5;
+  // Process in batches of 3 to respect rate limits (Groq is fast but has TPM limits)
+  const BATCH_SIZE = 3;
   for (let i = 0; i < messages.length; i += BATCH_SIZE) {
     const batch = messages.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (msg) => {
-      const analysis = await analyzeWithGemini(genAI, msg.text, state);
+      const analysis = await analyzeWithGroq(groq, msg.text);
       if (analysis) {
         results.set(msg.id, analysis);
       }
     });
     await Promise.all(promises);
 
+    // Small delay between batches
     if (i + BATCH_SIZE < messages.length) {
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 250));
     }
   }
 
@@ -191,7 +154,7 @@ export async function GET(request: NextRequest) {
   }
 
   const telegramUrl = `https://t.me/s/${channelUsername}`;
-  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const groqApiKey = process.env.GROQ_API_KEY;
 
   try {
     const response = await fetch(telegramUrl, {
@@ -288,19 +251,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ── Gemini AI Analysis ───────────────────────────────
+    // ── Groq AI Analysis ─────────────────────────────────
     let aiResults = new Map<number, AiAnalysis>();
 
-    if (geminiApiKey && plainTexts.length > 0) {
+    if (groqApiKey && plainTexts.length > 0) {
       try {
-        const genAI = new GoogleGenerativeAI(geminiApiKey);
-        aiResults = await batchAnalyze(plainTexts, genAI);
-        console.log(`Gemini analyzed ${aiResults.size}/${plainTexts.length} messages`);
+        const groq = new Groq({ apiKey: groqApiKey });
+        aiResults = await batchAnalyze(plainTexts, groq);
+        console.log(`Groq analyzed ${aiResults.size}/${plainTexts.length} messages`);
       } catch (err) {
-        errors.push(`Gemini batch analysis error: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`Groq batch analysis error: ${err instanceof Error ? err.message : String(err)}`);
       }
-    } else if (!geminiApiKey) {
-      errors.push("GEMINI_API_KEY not configured — skipping AI analysis");
+    } else if (!groqApiKey) {
+      errors.push("GROQ_API_KEY not configured — skipping AI analysis");
     }
 
     for (const msg of messages) {
