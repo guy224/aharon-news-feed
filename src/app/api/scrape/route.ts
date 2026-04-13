@@ -61,7 +61,7 @@ async function analyzeWithGroq(
         { role: "system", content: GROQ_SYSTEM_PROMPT },
         { role: "user", content: `Analyze this news message: ${plainText}` }
       ],
-      model: "llama3-70b-8192",
+      model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },
       temperature: 0.1,
       max_tokens: 256,
