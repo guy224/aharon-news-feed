@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { ScrapedMessage, ScrapeResponse, AiAnalysis } from "@/lib/types";
 
@@ -55,58 +55,98 @@ const GEMINI_PROMPT = `אתה עורך חדשות ישראלי מומחה. עב�
 החזר אך ורק JSON תקין, ללא טקסט נוסף.`;
 
 /**
- * Analyze a single message with Gemini AI
+ * Analyze a single message with Gemini AI, including a robust fallback loop
  */
 async function analyzeWithGemini(
-  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
-  plainText: string
+  genAI: GoogleGenerativeAI,
+  plainText: string,
+  state: { workingModelName: string | null }
 ): Promise<AiAnalysis | null> {
-  try {
-    const result = await model.generateContent(
-      `${GEMINI_PROMPT}\n\nהודעה לניתוח:\n${plainText}`
-    );
-    const responseText = result.response.text();
+  const modelsToTry = [
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash-002",
+    "gemini-pro"
+  ];
 
-    const parsed = JSON.parse(responseText);
+  // If we already found a working model in a previous call during this run, start with it
+  const startIdx = state.workingModelName
+    ? Math.max(0, modelsToTry.indexOf(state.workingModelName))
+    : 0;
 
-    // Validate and clamp values
-    const validCategories = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
-    const category = validCategories.includes(parsed.category) ? parsed.category : "כללי";
-    const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
+  for (let i = startIdx; i < modelsToTry.length; i++) {
+    const modelName = modelsToTry[i];
+    try {
+      const isOldModel = modelName === "gemini-pro";
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          // gemini-pro (v1.0) crashes if responseMimeType is set
+          ...(isOldModel ? {} : { responseMimeType: "application/json" }),
+          temperature: 0.3,
+          maxOutputTokens: 256,
+        },
+      });
 
-    return {
-      ai_title: parsed.ai_title || null,
-      category,
-      urgency_score: urgencyScore,
-    };
-  } catch (err) {
-    console.error("Gemini analysis error:", err instanceof Error ? err.message : err);
-    return null;
+      const result = await model.generateContent(
+        `${GEMINI_PROMPT}\n\nהודעה לניתוח:\n${plainText}`
+      );
+      const responseText = result.response.text();
+
+      // Basic cleanup of response text in case JSON mode is off (gemini-pro)
+      let cleanJson = responseText.trim();
+      if (cleanJson.startsWith("```json")) {
+        cleanJson = cleanJson.replace(/```json|```/g, "").trim();
+      }
+
+      const parsed = JSON.parse(cleanJson);
+
+      // Successfully parsed! Save this model as working for next time
+      state.workingModelName = modelName;
+
+      // Validate and clamp values
+      const validCategories = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
+      const category = validCategories.includes(parsed.category) ? parsed.category : "כללי";
+      const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
+
+      return {
+        ai_title: parsed.ai_title || "עדכון חדשות",
+        category,
+        urgency_score: urgencyScore,
+      };
+    } catch (err) {
+      console.warn(`Failed with model ${modelName}, trying next... Error: ${err instanceof Error ? err.message : String(err)}`);
+      // If the model was previously working but now fails, reset it and keep trying
+      state.workingModelName = null;
+      continue;
+    }
   }
+
+  return null;
 }
 
 /**
- * Batch-analyze messages with Gemini, processing concurrently with a limit
+ * Batch-analyze messages with Gemini
  */
 async function batchAnalyze(
   messages: { id: number; text: string }[],
-  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>
+  genAI: GoogleGenerativeAI
 ): Promise<Map<number, AiAnalysis>> {
   const results = new Map<number, AiAnalysis>();
+  const state = { workingModelName: null };
 
   // Process in batches of 5 to respect rate limits
   const BATCH_SIZE = 5;
   for (let i = 0; i < messages.length; i += BATCH_SIZE) {
     const batch = messages.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (msg) => {
-      const analysis = await analyzeWithGemini(model, msg.text);
+      const analysis = await analyzeWithGemini(genAI, msg.text, state);
       if (analysis) {
         results.set(msg.id, analysis);
       }
     });
     await Promise.all(promises);
 
-    // Small delay between batches to avoid rate limiting
     if (i + BATCH_SIZE < messages.length) {
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -117,19 +157,8 @@ async function batchAnalyze(
 
 // ── Main Route Handler ─────────────────────────────────────
 
-/**
- * GET /api/scrape
- *
- * Fetches the latest messages from the configured Telegram channel,
- * parses them with Cheerio, analyzes with Gemini AI, and upserts into Supabase.
- *
- * Protected by CRON_SECRET / SCRAPER_SECRET_TOKEN — pass as Bearer token.
- */
 export async function GET(request: NextRequest) {
   // ── Auth Check ──────────────────────────────────────────
-  // Two auth methods for external cron services:
-  // 1. Header:  Authorization: Bearer <SCRAPER_SECRET_TOKEN>
-  // 2. Query:   /api/scrape?token=<SCRAPER_SECRET_TOKEN>
   const authHeader = request.headers.get("authorization");
   const queryToken = request.nextUrl.searchParams.get("token");
   const scraperSecret = process.env.SCRAPER_SECRET_TOKEN;
@@ -165,7 +194,6 @@ export async function GET(request: NextRequest) {
   const geminiApiKey = process.env.GEMINI_API_KEY;
 
   try {
-    // ── Fetch Telegram HTML ──────────────────────────────
     const response = await fetch(telegramUrl, {
       headers: {
         "User-Agent":
@@ -188,7 +216,6 @@ export async function GET(request: NextRequest) {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // ── Parse Messages ───────────────────────────────────
     const messages: ScrapedMessage[] = [];
     const plainTexts: { id: number; text: string }[] = [];
     const errors: string[] = [];
@@ -197,7 +224,6 @@ export async function GET(request: NextRequest) {
       try {
         const $msg = $(element);
         const $messageDiv = $msg.find(".tgme_widget_message");
-
         const dataPost = $messageDiv.attr("data-post");
         const messageId = parseMessageId(dataPost);
 
@@ -237,13 +263,11 @@ export async function GET(request: NextRequest) {
           timestamp,
           media_url: mediaUrl,
           is_urgent: isUrgentContent(plainText),
-          // AI fields will be filled after Gemini analysis
           category: null,
           ai_title: null,
           urgency_score: 1,
         });
 
-        // Collect plain text for AI analysis
         if (plainText && plainText.trim().length > 10) {
           plainTexts.push({ id: messageId, text: plainText.trim() });
         }
@@ -270,41 +294,28 @@ export async function GET(request: NextRequest) {
     if (geminiApiKey && plainTexts.length > 0) {
       try {
         const genAI = new GoogleGenerativeAI(geminiApiKey);
-        const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash-latest",
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.3,
-            maxOutputTokens: 256,
-          },
-        });
-
-        aiResults = await batchAnalyze(plainTexts, model);
+        aiResults = await batchAnalyze(plainTexts, genAI);
         console.log(`Gemini analyzed ${aiResults.size}/${plainTexts.length} messages`);
       } catch (err) {
-        errors.push(`Gemini initialization error: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`Gemini batch analysis error: ${err instanceof Error ? err.message : String(err)}`);
       }
     } else if (!geminiApiKey) {
       errors.push("GEMINI_API_KEY not configured — skipping AI analysis");
     }
 
-    // ── Merge AI results into messages ───────────────────
     for (const msg of messages) {
       const ai = aiResults.get(msg.telegram_message_id);
       if (ai) {
         msg.ai_title = ai.ai_title;
         msg.category = ai.category;
         msg.urgency_score = ai.urgency_score;
-        // Override is_urgent based on urgency_score
         if (ai.urgency_score >= 4) {
           msg.is_urgent = true;
         }
       }
     }
 
-    // ── Upsert to Supabase ───────────────────────────────
     const supabase = createServerSupabaseClient();
-
     const { error: upsertError } = await supabase
       .from("news_feed")
       .upsert(
