@@ -70,11 +70,23 @@ async function analyzeWithGroq(
     const responseText = chatCompletion.choices[0]?.message?.content;
     if (!responseText) return null;
 
-    const parsed = JSON.parse(responseText);
+    // Log raw response for debugging in Vercel
+    console.log("Groq Raw Response:", responseText);
+
+    let parsed;
+    try {
+      // Clean up markdown formatting if present
+      const cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+      parsed = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error("Groq JSON Parse Error:", parseError);
+      console.error("Failed text:", responseText);
+      return null;
+    }
 
     // Validate and clamp values
     const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
-    const category = validCategories.includes(parsed.category) ? parsed.category : "כללי";
+    const category = (parsed.category && validCategories.includes(parsed.category)) ? parsed.category : "כללי";
     const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
 
     return {
@@ -83,7 +95,7 @@ async function analyzeWithGroq(
       urgency_score: urgencyScore,
     };
   } catch (err) {
-    console.error("Groq analysis error:", err instanceof Error ? err.message : err);
+    console.error("Groq API Error:", err instanceof Error ? err.message : err);
     return null;
   }
 }
