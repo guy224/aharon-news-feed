@@ -16,6 +16,7 @@ export interface NewsFeedItem {
   content: string | null;
   timestamp: string;
   media_url: string | null;
+  media_type?: "image" | "video";
   is_urgent: boolean;
   created_at: string;
   // AI-generated fields
@@ -29,6 +30,7 @@ export interface ScrapedMessage {
   content: string | null;
   timestamp: string;
   media_url: string | null;
+  media_type?: "image" | "video";
   is_urgent: boolean;
   // AI-generated fields
   category: NewsCategory | null;

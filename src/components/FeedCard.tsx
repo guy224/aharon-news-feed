@@ -200,25 +200,36 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
           </div>
         )}
 
-        {/* ── Media Image ───────────────────────────────── */}
+        {/* ── Media ─────────────────────────────────────── */}
         {item.media_url && (
-          <div className="relative overflow-hidden">
-            <img
-              src={item.media_url}
-              alt="תמונה מצורפת"
-              loading="lazy"
-              className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] sm:h-56"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = "none";
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = "flex";
-              }}
-            />
-            <div className="hidden h-48 w-full items-center justify-center bg-slate-800/50 sm:h-56">
-              <ImageIcon className="h-8 w-8 text-slate-600" />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+          <div className="relative flex items-center justify-center overflow-hidden bg-black/40">
+            {item.media_type === "video" || item.media_url.endsWith(".mp4") ? (
+              <video
+                src={item.media_url}
+                controls
+                preload="metadata"
+                className="max-h-96 w-full object-contain sm:max-h-[500px]"
+              />
+            ) : (
+              <>
+                <img
+                  src={item.media_url}
+                  alt="תמונה מצורפת"
+                  loading="lazy"
+                  className="max-h-96 w-full object-contain sm:max-h-[500px]"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = "none";
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = "flex";
+                  }}
+                />
+                <div className="hidden h-48 w-full items-center justify-center bg-slate-800/50 sm:h-56">
+                  <ImageIcon className="h-8 w-8 text-slate-600" />
+                </div>
+              </>
+            )}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
           </div>
         )}
 

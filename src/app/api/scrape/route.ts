@@ -207,24 +207,49 @@ export async function GET(request: NextRequest) {
           return;
         }
 
-        const content = $msg.find(".tgme_widget_message_text").html() || null;
-        const plainText = $msg.find(".tgme_widget_message_text").text() || null;
+        let content = $msg.find(".tgme_widget_message_text").html() || null;
+        let plainText = $msg.find(".tgme_widget_message_text").text() || null;
+
+        // Clean promotional footer text
+        if (content) {
+          content = content.replace(/(🚨)?\s*אהרון ידיעות( בטלגרם)?[\s\S]*$/i, "").trim();
+        }
+        if (plainText) {
+          plainText = plainText.replace(/(🚨)?\s*אהרון ידיעות( בטלגרם)?[\s\S]*$/i, "").trim();
+        }
 
         const timeEl = $msg.find(".tgme_widget_message_date time");
         const datetime = timeEl.attr("datetime");
         const timestamp = datetime || new Date().toISOString();
 
         let mediaUrl: string | null = null;
-        const photoWrap = $msg.find(".tgme_widget_message_photo_wrap");
-        if (photoWrap.length) {
-          mediaUrl = extractImageUrl(photoWrap.attr("style"));
+        let mediaType: "image" | "video" = "image";
+
+        // 1. Check for actual <video> tag
+        const videoTag = $msg.find("video");
+        if (videoTag.length && videoTag.attr("src")) {
+          mediaUrl = videoTag.attr("src") || null;
+          mediaType = "video";
         }
+        
+        // 2. Check for video thumb background (common in Telegram embeds)
         if (!mediaUrl) {
           const videoThumb = $msg.find(".tgme_widget_message_video_thumb");
           if (videoThumb.length) {
             mediaUrl = extractImageUrl(videoThumb.attr("style"));
+            if (mediaUrl) mediaType = "video";
           }
         }
+
+        // 3. Fallback to image photo wrap
+        if (!mediaUrl) {
+          const photoWrap = $msg.find(".tgme_widget_message_photo_wrap");
+          if (photoWrap.length) {
+            mediaUrl = extractImageUrl(photoWrap.attr("style"));
+          }
+        }
+
+        // 4. Fallback to raw img tag
         if (!mediaUrl) {
           const imgEl = $msg.find(".tgme_widget_message_photo img");
           if (imgEl.length) {
@@ -237,6 +262,7 @@ export async function GET(request: NextRequest) {
           content,
           timestamp,
           media_url: mediaUrl,
+          media_type: mediaUrl ? mediaType : undefined,
           is_urgent: isUrgentContent(plainText),
           category: null,
           ai_title: null,
@@ -299,6 +325,7 @@ export async function GET(request: NextRequest) {
           content: msg.content,
           timestamp: msg.timestamp,
           media_url: msg.media_url,
+          media_type: msg.media_type,
           is_urgent: msg.is_urgent,
           category: msg.category,
           ai_title: msg.ai_title,
