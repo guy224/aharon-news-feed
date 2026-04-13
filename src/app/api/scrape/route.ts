@@ -127,23 +127,23 @@ async function batchAnalyze(
  */
 export async function GET(request: NextRequest) {
   // ── Auth Check ──────────────────────────────────────────
-  // Three auth methods supported:
-  // 1. Vercel Cron: sends "Authorization: Bearer <CRON_SECRET>" automatically
-  // 2. Manual trigger: "Authorization: Bearer <SCRAPER_SECRET_TOKEN>"
-  // 3. Vercel internal cron header: "x-vercel-cron: 1" (only sent by Vercel infra)
+  // Two auth methods for external cron services:
+  // 1. Header:  Authorization: Bearer <SCRAPER_SECRET_TOKEN>
+  // 2. Query:   /api/scrape?token=<SCRAPER_SECRET_TOKEN>
   const authHeader = request.headers.get("authorization");
-  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
-  const scraperSecret = process.env.CRON_SECRET || process.env.SCRAPER_SECRET_TOKEN;
+  const queryToken = request.nextUrl.searchParams.get("token");
+  const scraperSecret = process.env.SCRAPER_SECRET_TOKEN;
 
-  if (!scraperSecret && !isVercelCron) {
+  if (!scraperSecret) {
     return NextResponse.json(
-      { success: false, message: "CRON_SECRET or SCRAPER_SECRET_TOKEN not configured" } as ScrapeResponse,
+      { success: false, message: "SCRAPER_SECRET_TOKEN not configured" } as ScrapeResponse,
       { status: 500 }
     );
   }
 
-  // Allow if: valid Bearer token OR Vercel internal cron header
-  const isAuthorized = isVercelCron || (scraperSecret && authHeader === `Bearer ${scraperSecret}`);
+  const isAuthorized =
+    authHeader === `Bearer ${scraperSecret}` ||
+    queryToken === scraperSecret;
 
   if (!isAuthorized) {
     return NextResponse.json(
