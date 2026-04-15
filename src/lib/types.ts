@@ -23,6 +23,7 @@ export interface NewsFeedItem {
   category: NewsCategory | null;
   ai_title: string | null;
   urgency_score: number | null;
+  interest_score: number | null;
 }
 
 export interface ScrapedMessage {
@@ -36,12 +37,14 @@ export interface ScrapedMessage {
   category: NewsCategory | null;
   ai_title: string | null;
   urgency_score: number | null;
+  interest_score: number | null;
 }
 
 export interface AiAnalysis {
   ai_title: string;
   category: NewsCategory;
   urgency_score: number;
+  interest_score: number;
 }
 
 export interface ScrapeResponse {

@@ -45,6 +45,7 @@ Analyze the news message and return a JSON object with these EXACT fields:
 1. "ai_title": A short, punchy Hebrew headline (4-6 words) for the news flash.
 2. "category": Strictly one of these values: "ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי".
 3. "urgency_score": A number 1 to 5 (5 is a rocket alert or major attack, 1 is routine news).
+4. "interest_score": A number 1 to 10 evaluating how engaging or "clickable" the item is for a general audience (10 is highly trending/viral, 1 is boring/niche).
 
 CRITICAL: Return ONLY valid JSON. No other text.`;
 
@@ -99,11 +100,13 @@ async function analyzeWithGroq(
       const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
       const category = (parsed.category && validCategories.includes(parsed.category)) ? parsed.category : "כללי";
       const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
+      const interestScore = Math.min(10, Math.max(1, Math.round(Number(parsed.interest_score) || 5)));
 
       return {
         ai_title: parsed.ai_title || "עדכון חדשות",
         category,
         urgency_score: urgencyScore,
+        interest_score: interestScore,
       };
     } catch (err) {
       console.error(`Groq API Error on model ${model}:`, err instanceof Error ? err.message : err);
@@ -284,6 +287,7 @@ export async function GET(request: NextRequest) {
           category: null,
           ai_title: null,
           urgency_score: 1,
+          interest_score: null,
         });
 
         if (plainText && plainText.trim().length > 10) {
@@ -327,6 +331,7 @@ export async function GET(request: NextRequest) {
         msg.ai_title = ai.ai_title;
         msg.category = ai.category;
         msg.urgency_score = ai.urgency_score;
+        msg.interest_score = ai.interest_score;
         if (ai.urgency_score >= 4) {
           msg.is_urgent = true;
         }
@@ -347,6 +352,7 @@ export async function GET(request: NextRequest) {
           category: msg.category,
           ai_title: msg.ai_title,
           urgency_score: msg.urgency_score,
+          interest_score: msg.interest_score,
         })),
         {
           onConflict: "telegram_message_id",

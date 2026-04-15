@@ -12,6 +12,8 @@ import {
   Scale,
   Newspaper,
   Share2,
+  Flame,
+  TrendingUp,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { NewsFeedItem, NewsCategory } from "@/lib/types";
@@ -152,6 +154,21 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
                 <CategoryIcon className="h-2.5 w-2.5" />
                 {item.category}
               </span>
+              {/* Interest / Trending Badge */}
+              {item.interest_score && (
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
+                  item.interest_score >= 8
+                    ? "bg-gradient-to-r from-orange-500/20 to-rose-500/20 text-orange-400 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]"
+                    : "bg-white/5 border border-white/10 text-slate-400"
+                }`}>
+                  {item.interest_score >= 8 ? (
+                    <TrendingUp className="h-2.5 w-2.5" />
+                  ) : (
+                    <Flame className="h-2.5 w-2.5 text-orange-500/50" />
+                  )}
+                  {item.interest_score >= 8 ? `מגמה · ${item.interest_score}/10` : `${item.interest_score}/10`}
+                </span>
+              )}
               {/* Urgency dots */}
               {item.urgency_score && item.urgency_score > 1 && (
                 <div className="flex items-center gap-[3px]">
