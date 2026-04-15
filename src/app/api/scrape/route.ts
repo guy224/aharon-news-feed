@@ -55,49 +55,66 @@ async function analyzeWithGroq(
   groq: Groq,
   plainText: string
 ): Promise<AiAnalysis | null> {
-  try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: GROQ_SYSTEM_PROMPT },
-        { role: "user", content: `Analyze this news message: ${plainText}` }
-      ],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 256,
-    });
+  const modelsToTry = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it"
+  ];
 
-    const responseText = chatCompletion.choices[0]?.message?.content;
-    if (!responseText) return null;
-
-    // Log raw response for debugging in Vercel
-    console.log("Groq Raw Response:", responseText);
-
-    let parsed;
+  for (const model of modelsToTry) {
     try {
-      // Clean up markdown formatting if present
-      const cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      parsed = JSON.parse(cleanText);
-    } catch (parseError) {
-      console.error("Groq JSON Parse Error:", parseError);
-      console.error("Failed text:", responseText);
-      return null;
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: GROQ_SYSTEM_PROMPT },
+          { role: "user", content: `Analyze this news message: ${plainText}` }
+        ],
+        model: model,
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        max_tokens: 256,
+      });
+
+      const responseText = chatCompletion.choices[0]?.message?.content;
+      if (!responseText) {
+        console.warn(`Groq model ${model} returned empty response, trying next...`);
+        continue;
+      }
+
+      // Log raw response for debugging in Vercel
+      console.log(`Groq Raw Response (${model}):`, responseText);
+
+      let parsed;
+      try {
+        // Clean up markdown formatting if present
+        const cleanText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        parsed = JSON.parse(cleanText);
+      } catch (parseError) {
+        console.error(`Groq JSON Parse Error on ${model}:`, parseError);
+        console.error("Failed text:", responseText);
+        continue; // Try next model instead of completely failing
+      }
+
+      // Validate and clamp values
+      const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
+      const category = (parsed.category && validCategories.includes(parsed.category)) ? parsed.category : "כללי";
+      const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
+
+      return {
+        ai_title: parsed.ai_title || "עדכון חדשות",
+        category,
+        urgency_score: urgencyScore,
+      };
+    } catch (err) {
+      console.error(`Groq API Error on model ${model}:`, err instanceof Error ? err.message : err);
+      // Wait a tiny bit before trying the next model
+      await new Promise((r) => setTimeout(r, 500));
     }
-
-    // Validate and clamp values
-    const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
-    const category = (parsed.category && validCategories.includes(parsed.category)) ? parsed.category : "כללי";
-    const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
-
-    return {
-      ai_title: parsed.ai_title || "עדכון חדשות",
-      category,
-      urgency_score: urgencyScore,
-    };
-  } catch (err) {
-    console.error("Groq API Error:", err instanceof Error ? err.message : err);
-    return null;
   }
+
+  // If all models fail, return null to fallback to raw message
+  console.error("All Groq models failed or rate-limited.");
+  return null;
 }
 
 /**
