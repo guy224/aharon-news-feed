@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Work_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const workSans = Work_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-work-sans",
 });
 
 export const metadata: Metadata = {
@@ -47,8 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+    <html lang="he" dir="rtl" suppressHydrationWarning>
+      <body className={`${workSans.variable} font-sans antialiased`} suppressHydrationWarning>
         {children}
       </body>
     </html>

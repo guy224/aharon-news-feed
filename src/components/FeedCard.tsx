@@ -59,29 +59,9 @@ const CATEGORY_MAP: Record<NewsCategory, { icon: React.ComponentType<{ className
 
 // ── Urgency card styling ──────────────────────────────
 
+// Not used for borders/glows anymore, but keeping a simple function for safety
 function getUrgencyStyles(score: number | null) {
-  const s = score || 1;
-  if (s >= 5) return {
-    border: "rgba(239,68,68,0.4)",
-    glow: "0 0 25px rgba(239,68,68,0.3)",
-    bg: "rgba(127,29,29,0.1)",
-    titleClass: "text-white/95", // Kept simple per request
-    urgent: true,
-  };
-  if (s >= 4) return {
-    border: "rgba(239,68,68,0.3)", // border-red-500/30 requested
-    glow: "0 0 15px rgba(239,68,68,0.2)",
-    bg: "rgba(249,115,22,0.05)",
-    titleClass: "text-white/95",
-    urgent: true,
-  };
-  return {
-    border: "rgba(255,255,255,0.08)",
-    glow: "0 25px 50px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
-    bg: "rgba(255,255,255,0.04)",
-    titleClass: "text-white/95",
-    urgent: false,
-  };
+  return { urgent: (score || 1) >= 4 };
 }
 
 // ── Component ──────────────────────────────────────────
@@ -132,67 +112,41 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: isNew ? 0 : index * 0.04 }}
-      whileHover={{ scale: 1.015, y: -2, transition: { type: "spring", stiffness: 400, damping: 28 } }}
+      whileHover={{ y: -2, transition: { type: "spring", stiffness: 400, damping: 28 } }}
       className="cursor-default"
       style={{ animationFillMode: "both" }}
     >
-      <div
-        className="flex flex-col rounded-[2rem] backdrop-blur-2xl transition-shadow duration-300 p-4 sm:p-5"
-        style={{
-          background: urgency.bg,
-          border: `1px solid ${urgency.border}`,
-          boxShadow: urgency.urgent
-            ? `${urgency.glow}, 0 25px 50px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)`
-            : urgency.glow,
-        }}
-      >
+      <div className="flex flex-col rounded-[1.5rem] bg-[#FFFFFF] shadow-[0_10px_40px_rgba(0,0,0,0.04)] p-5 sm:p-6 mb-4">
+        
         {/* ── Header: Category, Share ─────────── */}
-        <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="mb-3 flex items-start justify-between gap-2">
           {categoryConfig && CategoryIcon ? (
             <div className="flex items-center gap-2">
-              <span className="bg-white/10 backdrop-blur-md border border-white/10 text-[10px] px-2 py-0.5 rounded-full text-slate-300 uppercase tracking-widest inline-flex items-center gap-1.5">
-                <CategoryIcon className="h-2.5 w-2.5" />
+              <span className="bg-slate-50 border border-slate-200 text-[10px] px-2.5 py-1 rounded-full text-slate-600 uppercase tracking-widest inline-flex items-center gap-1.5 font-bold">
+                <CategoryIcon className="h-3 w-3 text-slate-400" />
                 {item.category}
               </span>
               {/* Interest / Trending Badge */}
               {item.interest_score && (
                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
                   item.interest_score >= 8
-                    ? "bg-gradient-to-r from-orange-500/20 to-rose-500/20 text-orange-400 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]"
-                    : "bg-white/5 border border-white/10 text-slate-400"
+                    ? "bg-rose-50 border border-rose-200 text-rose-500"
+                    : "bg-slate-50 border border-slate-200 text-slate-500"
                 }`}>
                   {item.interest_score >= 8 ? (
-                    <TrendingUp className="h-2.5 w-2.5" />
+                    <TrendingUp className="h-3 w-3" />
                   ) : (
-                    <Flame className="h-2.5 w-2.5 text-orange-500/50" />
+                    <Flame className="h-3 w-3 text-slate-400" />
                   )}
-                  {item.interest_score >= 8 ? `מגמה · ${item.interest_score}/10` : `${item.interest_score}/10`}
+                  {item.interest_score >= 8 ? `Trending · ${item.interest_score}/10` : `${item.interest_score}/10`}
                 </span>
-              )}
-              {/* Urgency dots */}
-              {item.urgency_score && item.urgency_score > 1 && (
-                <div className="flex items-center gap-[3px]">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-1 w-1 rounded-full"
-                      style={{
-                        background: i < (item.urgency_score ?? 1)
-                          ? (item.urgency_score ?? 1) >= 4 ? "rgb(239,68,68)"
-                          : (item.urgency_score ?? 1) >= 3 ? "rgb(234,179,8)"
-                          : "rgba(255,255,255,0.4)"
-                          : "rgba(255,255,255,0.1)",
-                      }}
-                    />
-                  ))}
-                </div>
               )}
             </div>
           ) : <div />}
           <button
             onClick={handleShare}
             aria-label="שתף"
-            className="flex-shrink-0 rounded-full p-2 text-white/30 transition-all hover:bg-white/10 hover:text-white/70 focus:outline-none"
+            className="flex-shrink-0 rounded-full p-2 bg-slate-50 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
           >
             <Share2 className="h-4 w-4" />
           </button>
@@ -200,20 +154,20 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
 
         {/* ── AI Title (The Headline) ─────────── */}
         {displayTitle && (
-          <h2 className="mb-3 text-xl md:text-2xl font-bold text-white/95 tracking-tight leading-tight">
+          <h2 className="mb-4 text-xl md:text-[22px] font-extrabold text-[#16161B] tracking-tight leading-snug font-sans">
             {displayTitle}
           </h2>
         )}
 
         {/* ── Media ───────────────────────────────────── */}
         {item.media_url && (
-          <div className="relative mb-3 flex items-center justify-center overflow-hidden rounded-2xl bg-black/40">
+          <div className="relative mb-4 flex items-center justify-center overflow-hidden rounded-2xl bg-[#F8F9FA] border border-slate-100 p-2 sm:p-3">
             {item.media_type === "video" || item.media_url.endsWith(".mp4") ? (
               <video
                 src={item.media_url}
                 controls
                 preload="metadata"
-                className="max-h-80 w-full object-contain sm:max-h-[440px]"
+                className="max-h-80 w-full object-contain sm:max-h-[440px] rounded-xl"
               />
             ) : (
               <>
@@ -221,7 +175,7 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
                   src={item.media_url}
                   alt="תמונה מצורפת"
                   loading="lazy"
-                  className="max-h-80 w-full object-contain sm:max-h-[440px]"
+                  className="max-h-80 w-full object-contain sm:max-h-[440px] rounded-xl shadow-sm"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                     const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
@@ -229,29 +183,41 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
                   }}
                 />
                 <div className="hidden h-40 w-full items-center justify-center">
-                  <ImageIcon className="h-7 w-7 text-white/20" />
+                  <ImageIcon className="h-7 w-7 text-slate-300" />
                 </div>
               </>
             )}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
           </div>
         )}
 
         {/* ── Content ─────────────────────────────────── */}
         {item.content && (
           <div
-            className="feed-content text-slate-400 text-sm md:text-base leading-relaxed"
+            className="feed-content"
             dangerouslySetInnerHTML={{ __html: item.content }}
           />
         )}
 
-        {/* ── Timestamp ───────────────────────────────── */}
-        <div className="mt-2 flex justify-end">
+        {/* ── Footer / Timestamp ──────────────────────── */}
+        <div className="mt-5 flex items-center justify-between pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            {/* Urgency Dot */}
+            {isHighUrgency && (
+              <div className="flex items-center gap-1.5" title="עדכון דחוף">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">דחוף</span>
+              </div>
+            )}
+          </div>
           <time
             dateTime={item.timestamp}
             title={fullTime}
-            className="text-[10px] text-slate-500"
+            className="text-[11px] font-medium text-slate-400 uppercase tracking-widest flex items-center gap-1"
           >
+            <Clock className="h-3 w-3" />
             {relativeTime}
           </time>
         </div>

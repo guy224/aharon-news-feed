@@ -193,7 +193,7 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
   }, [items, activeCategory]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-[#0a1128] to-slate-950 text-white">
+    <div className="min-h-screen text-[#16161B] bg-transparent">
       {/* Sticky Header */}
       <Header isConnected={isConnected} />
 
@@ -204,10 +204,9 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
             onClick={scrollToTop}
             className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
             style={{
-              background: "rgba(59,130,246,0.9)",
-              backdropFilter: "blur(20px)",
+              background: "#1959FF",
               border: "1px solid rgba(255,255,255,0.15)",
-              boxShadow: "0 8px 24px rgba(59,130,246,0.35)",
+              boxShadow: "0 8px 24px rgba(25, 89, 255, 0.35)",
             }}
           >
             <span>↑</span>
@@ -216,28 +215,24 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
         </div>
       )}
 
-      {/* Feed container — pt-28 clears the floating island header */}
-      <main className="relative mx-auto max-w-2xl px-4 pb-16 pt-28">
+      {/* Feed container — pt-20 clears the fixed header */}
+      <main className="relative mx-auto max-w-[600px] px-4 pb-16 pt-[88px]">
         
         {/* Horizontal Category Scroller */}
         <div
-          className="sticky top-24 z-40 -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 py-3 hide-scrollbar"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(24px)" }}
+          className="sticky top-[68px] z-40 -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 py-3 hide-scrollbar"
+          style={{ background: "#EFEFEF" }}
         >
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className="whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-all"
+              className="whitespace-nowrap rounded-[1rem] px-4 py-2 text-[13.5px] font-medium transition-all"
               style={{
-                background: activeCategory === cat
-                  ? "rgba(59,130,246,0.85)"
-                  : "rgba(255,255,255,0.05)",
-                border: activeCategory === cat
-                  ? "1px solid rgba(59,130,246,0.6)"
-                  : "1px solid rgba(255,255,255,0.08)",
-                color: activeCategory === cat ? "#fff" : "rgba(255,255,255,0.5)",
-                boxShadow: activeCategory === cat ? "0 4px 16px rgba(59,130,246,0.3)" : "none",
+                background: activeCategory === cat ? "#1959FF" : "#FFFFFF",
+                border: activeCategory === cat ? "1px solid #1959FF" : "1px solid #E5E7EB",
+                color: activeCategory === cat ? "#fff" : "#16161B",
+                boxShadow: activeCategory === cat ? "0 4px 12px rgba(25, 89, 255, 0.25)" : "0 2px 4px rgba(0,0,0,0.02)",
               }}
             >
               {cat}
@@ -248,16 +243,13 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
 
         {/* Empty state */}
         {filteredItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-5 py-40 text-center">
-            <div
-              className="flex h-16 w-16 items-center justify-center rounded-3xl"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <Inbox className="h-7 w-7 text-white/20" />
+          <div className="flex flex-col items-center justify-center gap-5 py-32 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white border border-gray-200 shadow-sm">
+              <Inbox className="h-7 w-7 text-slate-400" />
             </div>
             <div>
-              <p className="text-base font-medium text-white/40">אין עדכונים עדיין</p>
-              <p className="mt-1 text-sm text-white/20">עדכונים חדשים יופיעו כאן באופן אוטומטי</p>
+              <p className="text-base font-semibold text-[#16161B]">אין עדכונים עדיין</p>
+              <p className="mt-1 text-sm text-slate-500">עדכונים חדשים יופיעו כאן באופן אוטומטי</p>
             </div>
           </div>
         )}
@@ -277,7 +269,7 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
         {/* Loading spinner */}
         {isLoadingMore && (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
           </div>
         )}
 
@@ -287,19 +279,16 @@ export default function NewsFeed({ initialData }: NewsFeedProps) {
         {/* End of feed */}
         {!hasMore && filteredItems.length > 0 && (
           <div className="py-12 text-center">
-            <p className="text-xs font-medium uppercase tracking-widest text-white/15">· סוף העדכונים ·</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">· סוף העדכונים ·</p>
           </div>
         )}
 
         {/* Disconnected banner */}
         {!isConnected && (
           <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-            <div
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm text-amber-300"
-              style={{ background: "rgba(120,53,15,0.5)", backdropFilter: "blur(20px)", border: "1px solid rgba(251,191,36,0.2)" }}
-            >
-              <WifiOff className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium uppercase tracking-widest">מתחבר מחדש...</span>
+            <div className="flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-orange-50 border border-orange-200 text-orange-700 shadow-md">
+              <WifiOff className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase tracking-widest">מתחבר מחדש...</span>
             </div>
           </div>
         )}
