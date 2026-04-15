@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Work_Sans } from "next/font/google";
+import { UserPreferencesProvider } from "@/contexts/UserPreferencesContext";
 import "./globals.css";
 
 const workSans = Work_Sans({
@@ -49,7 +50,9 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className={`${workSans.variable} font-sans antialiased`} suppressHydrationWarning>
-        {children}
+        <UserPreferencesProvider>
+          {children}
+        </UserPreferencesProvider>
       </body>
     </html>
   );

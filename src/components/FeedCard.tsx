@@ -14,9 +14,11 @@ import {
   Share2,
   Flame,
   TrendingUp,
+  Bookmark,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { NewsFeedItem, NewsCategory } from "@/lib/types";
+import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 
 // ── Relative Time Formatter ────────────────────────────
 
@@ -81,6 +83,9 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
   const CategoryIcon   = categoryConfig?.icon;
   const isHighUrgency  = (item.urgency_score || 1) >= 4;
 
+  const { savedArticles, toggleSavedArticle } = useUserPreferences();
+  const isSaved = savedArticles.includes(item.id);
+
   const handleShare = async () => {
     const shareData = {
       title: item.ai_title || "עדכון חדשות - אהרון ידיעות",
@@ -143,13 +148,24 @@ export default function FeedCard({ item, isNew = false, index = 0 }: FeedCardPro
               )}
             </div>
           ) : <div />}
-          <button
-            onClick={handleShare}
-            aria-label="שתף"
-            className="flex-shrink-0 rounded-full p-2 bg-slate-50 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => toggleSavedArticle(item.id)}
+              aria-label="שמור"
+              className={`flex-shrink-0 rounded-full p-2.5 transition-colors focus:outline-none ${
+                isSaved ? "bg-blue-50 text-[#1959FF]" : "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              }`}
+            >
+              <Bookmark className="h-4 w-4" fill={isSaved ? "currentColor" : "none"} />
+            </button>
+            <button
+              onClick={handleShare}
+              aria-label="שתף"
+              className="flex-shrink-0 rounded-full p-2.5 bg-slate-50 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── AI Title (The Headline) ─────────── */}

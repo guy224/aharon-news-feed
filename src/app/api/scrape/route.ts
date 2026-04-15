@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import Groq from "groq-sdk";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import type { ScrapedMessage, ScrapeResponse, AiAnalysis, NewsCategory } from "@/lib/types";
+import type { ScrapedMessage, ScrapeResponse, AiAnalysis, NewsCategory, NewsRegion } from "@/lib/types";
 
 // ── Urgent keywords (fallback when AI is unavailable) ──
 const URGENT_KEYWORDS = [
@@ -46,6 +46,7 @@ Analyze the news message and return a JSON object with these EXACT fields:
 2. "category": Strictly one of these values: "ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי".
 3. "urgency_score": A number 1 to 5 (5 is a rocket alert or major attack, 1 is routine news).
 4. "interest_score": A number 1 to 10 evaluating how engaging or "clickable" the item is for a general audience (10 is highly trending/viral, 1 is boring/niche).
+5. "region": Extract the primary region from the news. MUST be exactly one of: ["צפון", "שרון", "דן", "שפלה", "ירושלים", "דרום", "ארצי"]. If none applies specifically, return "ארצי".
 
 CRITICAL: Return ONLY valid JSON. No other text.`;
 
@@ -99,12 +100,17 @@ async function analyzeWithGroq(
       // Validate and clamp values
       const validCategories: NewsCategory[] = ["ביטחוני", "אזעקות", "פוליטי", "מדיני", "פלילי", "כללי"];
       const category = (parsed.category && validCategories.includes(parsed.category)) ? parsed.category : "כללי";
+      
+      const validRegions: NewsRegion[] = ["צפון", "שרון", "דן", "שפלה", "ירושלים", "דרום", "ארצי"];
+      const region = (parsed.region && validRegions.includes(parsed.region)) ? parsed.region : "ארצי";
+
       const urgencyScore = Math.min(5, Math.max(1, Math.round(Number(parsed.urgency_score) || 1)));
       const interestScore = Math.min(10, Math.max(1, Math.round(Number(parsed.interest_score) || 5)));
 
       return {
         ai_title: parsed.ai_title || "עדכון חדשות",
         category,
+        region,
         urgency_score: urgencyScore,
         interest_score: interestScore,
       };
@@ -285,6 +291,7 @@ export async function GET(request: NextRequest) {
           media_type: mediaUrl ? mediaType : undefined,
           is_urgent: isUrgentContent(plainText),
           category: null,
+          region: null,
           ai_title: null,
           urgency_score: 1,
           interest_score: null,
@@ -330,6 +337,7 @@ export async function GET(request: NextRequest) {
       if (ai) {
         msg.ai_title = ai.ai_title;
         msg.category = ai.category;
+        msg.region = ai.region;
         msg.urgency_score = ai.urgency_score;
         msg.interest_score = ai.interest_score;
         if (ai.urgency_score >= 4) {
@@ -350,6 +358,7 @@ export async function GET(request: NextRequest) {
           media_type: msg.media_type,
           is_urgent: msg.is_urgent,
           category: msg.category,
+          region: msg.region,
           ai_title: msg.ai_title,
           urgency_score: msg.urgency_score,
           interest_score: msg.interest_score,

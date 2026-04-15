@@ -10,6 +10,15 @@ export type NewsCategory =
   | "פלילי"
   | "כללי";
 
+export type NewsRegion =
+  | "צפון"
+  | "שרון"
+  | "דן"
+  | "שפלה"
+  | "ירושלים"
+  | "דרום"
+  | "ארצי";
+
 export interface NewsFeedItem {
   id: string;
   telegram_message_id: number;
@@ -21,6 +30,7 @@ export interface NewsFeedItem {
   created_at: string;
   // AI-generated fields
   category: NewsCategory | null;
+  region: NewsRegion | null;
   ai_title: string | null;
   urgency_score: number | null;
   interest_score: number | null;
@@ -35,6 +45,7 @@ export interface ScrapedMessage {
   is_urgent: boolean;
   // AI-generated fields
   category: NewsCategory | null;
+  region: NewsRegion | null;
   ai_title: string | null;
   urgency_score: number | null;
   interest_score: number | null;
@@ -43,6 +54,7 @@ export interface ScrapedMessage {
 export interface AiAnalysis {
   ai_title: string;
   category: NewsCategory;
+  region: NewsRegion | null;
   urgency_score: number;
   interest_score: number;
 }
